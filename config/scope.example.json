@@ -1,0 +1,17 @@
+{
+  "project": "danmei-ip-research",
+  "start_date": "2024-01-01",
+  "cutoff_date": "2026-11-10",
+  "timezone": "Asia/Shanghai",
+  "cutoff_end_exclusive": "2026-11-11T00:00:00+08:00",
+  "target": "all_eligible_works",
+  "platforms": ["晋江", "长佩"],
+  "category": "platform_verified_纯爱_or_耽美",
+  "media": ["电子书", "有声书", "广播剧", "漫画", "动画", "影视短剧", "游戏", "官方周边联名", "舞台线下"],
+  "include_originals_and_signed_works": true,
+  "exclude": ["实体图书出版", "实体出版授权", "印量", "纸书销量", "漫画纸质出版"],
+  "market_denominator": null,
+  "feishu_base": null,
+  "remote": null,
+  "recurring_jobs": false
+}

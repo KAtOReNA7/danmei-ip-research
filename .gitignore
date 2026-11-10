@@ -1,0 +1,9 @@
+data/
+evidence/
+receipts/
+exports/
+backups/
+config/*.local.json
+.env
+__pycache__/
+*.pyc
