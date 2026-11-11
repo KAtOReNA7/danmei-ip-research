@@ -6,6 +6,19 @@ from rules import *
 from feishu_sync import pending_rows
 from feishu_incremental import diff_rows
 class Rules(unittest.TestCase):
+ def test_reviewed_coverage_upgrade_is_scoped_and_guarded(self):
+  from unittest.mock import patch
+  from ingest_reviewed_batch import ingest
+  c=connect(':memory:');wid=add_work(c,'平台','guard','作品','作者','纯爱','完结','url',None)
+  d={'batch':'test','sources':[dict(key='official',url='url',title='official',facts={},method='test',captured_at='2026-11-11T00:00:00+08:00')],'reviews':[],
+     'coverage_updates':[dict(work_id=wid,media='电子书',expected_status='未调查',status='已确认',source='official',scope='核实数字发行',gap='其他渠道待核')]}
+  with patch('ingest_reviewed_batch.evidence',return_value=None):
+   ingest(c,d);ingest(c,d)
+   self.assertEqual(c.execute('select count(*) from check_history').fetchone()[0],1)
+   self.assertEqual(c.execute("select count(*) from coverage where status='未调查'").fetchone()[0],8)
+   c.execute("update coverage set status='访问受阻' where work_id=? and media='电子书'",(wid,))
+   with self.assertRaises(AssertionError):ingest(c,d)
+  c.close()
  def test_author_catalog_keeps_masked_locked_unknown_category(self):
   import tempfile
   from unittest.mock import patch

@@ -11,7 +11,7 @@ def ingest(c,d):
         identity=jj_identity(q['page_title'],q['author_links']);assert identity==(w['title'],w['author'])
         assert any('文章类型' in x and '纯爱' in x for x in q['metadata'])
         signed=next(x for x in q['metadata'] if '签约状态' in x);assert '已签约' in signed
-        eid=evidence(c,q['url'],q['page_title'],q,'晋江文学城',method='HTTP资格必要元数据；无实时指标',accessed=q['captured_at'])
+        eid=evidence(c,q['url'],q['page_title'],q,'晋江文学城',method=q.get('method','HTTP资格必要元数据；无实时指标'),accessed=q['captured_at'])
         c.execute("update works set inclusion_status='已确认',inclusion_basis=?,signing_raw=?,signing_evidence=?,identity_evidence=? where id=?",('官方作品页纯爱分类及作品级已签约标记；采集时确认，签约发生日期未知，不倒填截止日',signed,eid,eid,w['id']))
     seen=set()
     for r in d['reviews']:
@@ -21,6 +21,11 @@ def ingest(c,d):
             status=r.get('statuses',{}).get(media,'已调查未发现')
             prior=c.execute('select status from coverage where work_id=? and media=?',(wid,media)).fetchone();assert prior and prior[0] in ['未调查',status],'Stronger or changed evidence needs explicit reconciliation'
             checked(c,wid,media,status,r['query'],evs[r['source']],r.get('gaps',{}).get(media,'仅中文书名+作者索引初查；未穷尽站内、海外译名、下架和历史；未发现不等于未开发'))
+    for r in d.get('coverage_updates',[]):
+        assert r['media'] in MEDIA and r['source'] in evs
+        prior=c.execute('select status from coverage where work_id=? and media=?',(r['work_id'],r['media'])).fetchone()
+        assert prior and prior[0] in [r['expected_status'],r['status']], 'Coverage changed since review; reconcile before writing'
+        checked(c,r['work_id'],r['media'],r['status'],r['scope'],evs[r['source']],r['gap'])
     products={}
     for p in d.get('products',[]):
         wid=p['work_id'];pid=key('p',wid,p['media'],p['source_id']);products[p['key']]=pid
