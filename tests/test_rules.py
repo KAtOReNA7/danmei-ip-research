@@ -6,6 +6,24 @@ from rules import *
 from feishu_sync import pending_rows
 from feishu_incremental import diff_rows
 class Rules(unittest.TestCase):
+ def test_author_catalog_keeps_masked_locked_unknown_category(self):
+  import tempfile
+  from unittest.mock import patch
+  from bs4 import BeautifulSoup
+  import collect_author_catalogs as catalogs
+  html='<title>测试作者 的专栏:测试</title><table>'
+  for pid,title,cat in [('1','普通作品','原创-纯爱-近代现代-爱情'),('2','遮***名 [锁]','/'),('3','评论 [锁]','评论'),('4','另一类','原创-言情-近代现代-爱情')]:
+   html+=f'<tr><td><a href="onebook.php?novelid={pid}">{title}</a></td><td>{cat}</td><td>连载</td><td>99</td><td>123456</td><td></td></tr>'
+  html+='</table>'
+  with tempfile.TemporaryDirectory() as td:
+   root=Path(td);(root/'data').mkdir()
+   with patch.object(catalogs,'ROOT',root),patch.object(catalogs,'fetch',return_value=BeautifulSoup(html,'html.parser')):
+    d=catalogs.collect('测试作者','https://www.jjwxc.net/oneauthor.php?authorid=1','test')
+   self.assertEqual([r['source_id'] for r in d['rows']],['1','2'])
+   self.assertEqual(d['rows'][1]['title'],'遮***名 [锁]')
+   self.assertEqual(d['rows'][1]['category'],'/')
+   self.assertEqual(len(d['excluded_rows']),2)
+   self.assertTrue(all('words' not in r and 'points' not in r for r in d['rows']))
  def test_nested_title_and_author_underscore(self):
   from research import jj_identity
   self.assertEqual(jj_identity('《《模拟书》同人》模拟_作者_晋江文学城_【纯爱小说】'),('《模拟书》同人','模拟_作者'))
