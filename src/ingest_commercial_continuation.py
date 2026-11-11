@@ -7,8 +7,8 @@ def run(path):
  assert w and w['category_mapped']=='纯爱';wid=w['id'];evs={};sources={s['key']:s for s in d['sources']}
  for s in d['sources']:
   evs[s['key']]=evidence(c,s['url'],s['title'],{'excerpt':s['excerpt'],'facts':s['facts'],'limitations':d['limitations'],'previous_category_evidence':w['signing_evidence']},s['subject'],status=s.get('status','官方直接证据'),method='web.open 官方公告必要摘录/结构化事实；索引线索单列',published=s.get('published'),accessed=d['captured_at'])
- # Platform classification and the work-specific official original-work credit jointly establish inclusion.
- c.execute("update works set inclusion_status='已确认',inclusion_basis=?,identity_evidence=? where id=?",(f"{w['platform']}作品页纯爱分类；漫画官微明确署名长佩文学、{w['author']}原著；不推及全部媒介权利",evs['comic-update'],wid))
+ # A commercial credit links the project to the work. Eligibility requires its
+ # own original-publication or work-level platform-signing evidence.
  products={}
  for p in d['products']:
   pid=key('p',wid,p['media'],p.get('source_id') or p['title']);products[p['key']]=pid
@@ -17,7 +17,7 @@ def run(path):
   upsert(c,'products',row);c.execute('INSERT OR IGNORE INTO product_works VALUES(?,?,?)',(pid,wid,evs[p['source']]))
  for e in d['events']:
   upsert(c,'events',dict(id=key('event',wid,products[e['product']],e['type'],e['date']),work_id=wid,product_id=products[e['product']],event_type=e['type'],event_time=e['date'],time_precision='day',description=sources[e['source']]['facts'],window_role='观察窗口内',confirmation='已确认',evidence_id=evs[e['source']]))
- checked(c,wid,'漫画','已确认','快看项目入口及漫画官微2024/2025/2026公告；必要日期区分',evs['comic-update'],'新确认作品归属与漫画运营；季级版本及付费/免费更新日期待分；异常聚合数不计确认指标')
+ checked(c,wid,'漫画','已确认','快看项目入口及漫画官微2024/2025/2026公告；必要日期区分',evs['comic-update'],'确认该作品漫画项目关联与运营；原发/作品级平台签约资格另核，季级版本及付费/免费更新日期待分；异常聚合数不计确认指标')
  checked(c,wid,'官方周边联名','已确认','认证官微/QQ音乐/漫库官方公告：授权卡牌和联名礼盒',evs['cards'],'公告与执行分开；未核SKU、销量、收入及具体配送市场；混合礼盒收入不拆分')
  upsert(c,'exclusions',dict(id=key('exclude',sources['paper-exclude']['url']),source_url=sources['paper-exclude']['url'],title=sources['paper-exclude']['title'],reason='实体漫画出版排除；不计电子漫画或周边销售',evidence_id=evs['paper-exclude']))
  for f in sorted((ROOT/'evidence/search').glob('cp_*media.json'))+sorted((ROOT/'evidence/search').glob('cp_ebooks*.json'))+sorted((ROOT/'evidence/search').glob('cp_merchmore.json')):
