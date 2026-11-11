@@ -24,7 +24,8 @@ def save(batch,cloud=None):
     backup_note='Google Drive私有快照已上传并下载回读，SHA256及包内校验通过；远端快照时间与本轮本地进度分别记录，后续批次不冒充已备份。'
  stamp=now();p={'at':stamp,'batch':batch,'cutoff':'2026-11-10','status':'部分完成','candidate_source_records':n,'qualified_source_records':qualified,'touched_records':touched,'metadata_records':detail,'non_ebook_initial_search_records':cross,'no_checks_yet':n-touched,'remaining_jj_detail':len(pending),'next_jj_detail':pending[:10],'counts':counts,'cloud_validation':cloud,'global_denominator':None,'backup_status':backup_note}
  (ROOT/'data/progress.json').write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
- p['research_priority']='V1.1：窗口内已售出/已授权签约；上线不证明窗口内售出'
+ p['research_priority']='V1.2开发阶段连续采集整理；主线仍为窗口内已售出/已授权签约，上线不证明窗口内售出'
+ p['development_cadence']='本批本地落盘；仅同步变更表并回读。完整审核与私有备份留到里程碑，不代表本批已云端备份。'
  p['rights_window_summary']=[dict(r) for r in c.execute('select window_role,count(*) source_rows,count(distinct work_id) works from rights_records group by window_role')]
  p['independent_deal_count']=None
  (ROOT/'data/progress.json').write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
@@ -41,9 +42,9 @@ P1进行中；全量目标不变，行业调查未完成。{n}条候选来源记
 
 {directory_note}；详情电子书核查有{blocked}条访问受阻，其中{locked}条已由原响应确认显示锁定或删除提示，具体状态仍待证。未知解析失败先核对原响应，不能直接判定为账号限制。来源暂停时继续其他独立来源，不绕过。{cp_note}剩余晋江详情{len(pending)}条；所有作品仍需各媒介站内、海外译名、下架及历史商业表现深查。
 
-飞书只用CLI。每批差异预览、幂等写入、完整分页回读和关联核验。最新云端核验位置：{cloud or '尚待本批同步'}；真实部署位置和回执不入Git。超过2000行必须继续分页，不静默截断。
+飞书只用CLI。开发阶段仅同步变更表，完整分页回读本批写入字段及关联；未变更表沿用既有回读，不称本轮全量核验。最新本批回读位置：{cloud or '尚待本批同步'}；真实部署位置和回执不入Git。超过2000行必须继续分页，不静默截断。
 
-本地每批保留状态与证据，快照有SHA256清单。代码提交不含完整研究数据或凭据。{backup_note}
+本地每批保留状态与证据；开发批次不逐轮备份上传下载，完整核验和备份留到里程碑。代码提交不含完整研究数据或凭据。既有历史备份状态：{backup_note}本批新增数据以本地进度为准。
 
 主线V1.1：窗口内已售出/已授权签约优先，上线不证明2024年以来售出。权利披露{counts['rights_records']}行，独立合同数未知；详见exports/rights-sales-report.md。签约日期缺失及跨截止日单列，泛媒介初查不等于售出调查完成。
 

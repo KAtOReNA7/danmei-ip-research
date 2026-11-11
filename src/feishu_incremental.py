@@ -16,9 +16,21 @@ def diff_rows(rows,existing,baseline=None):
    for k in delta:assert norm(prev.get(k))==norm(base[row[keyname]].get(k)),'Concurrent edit: '+row[keyname]+' '+k
   if delta:updates[prev['record_id']]=delta
  return creates,updates
-def run(runid):
+def run(runid,full=False,tables=None):
  cfg=json.loads(CONFIG.read_text(encoding='utf-8'));base=cfg['base_token'];root=ROOT/'receipts'/runid;root.mkdir(exist_ok=True)
- data=datasets();workmap={};report={}
+ data=datasets();workmap={};report={};selected=[]
+ if tables:assert set(tables)<=set(data),'Unknown table'
+ for name,rows in data.items():
+  prior=ROOT/'receipts'/('latest-'+name+'.json')
+  cached=json.loads(prior.read_text(encoding='utf-8')) if prior.exists() else []
+  if name=='作品目录':workmap={r['后台键']:r['record_id'] for r in cached}
+  changed=not prior.exists() or any(diff_rows(rows,cached))
+  if full or (name in tables if tables else changed):selected.append(name)
+ if any('关联作品键' in r for name in selected for r in data[name]):
+  required={k for name in selected for r in data[name] for k in (r.get('关联作品键') or '').split('|') if k}
+  if not required<=set(workmap) and '作品目录' not in selected:selected.append('作品目录')
+ scope={'mode':'full' if full else 'development','selected_tables':selected,'skipped_tables':[n for n in data if n not in selected],'global_readback_performed':False,'work_link_mapping':'cached verified IDs; refreshed when works selected'}
+ (root/'scope.json').write_text(json.dumps(scope,ensure_ascii=False,indent=2),encoding='utf-8')
  def call(args,label):return cli(args,runid+'/'+label)
  # cli label includes a folder below receipts; create it before any requests.
  (ROOT/'receipts'/('cli-'+runid)).mkdir(exist_ok=True)
@@ -33,6 +45,7 @@ def run(runid):
    assert page,'Empty page while has_more';offset+=len(page)
   return rows
  for name,rows in data.items():
+  if name not in selected:continue
   tid=cfg['tables'][name]
   schema=call(['+field-list','--base-token',base,'--table-id',tid],'schema-'+name)['data']['fields']
   fields={f['name'] for f in schema}
@@ -81,5 +94,8 @@ def run(runid):
   report[name]={'rows':len(after),'created':len(creates),'updated':len(updates),'all_fields_match':True,'all_pages_read':True,'links_verified':'关联作品' in fields,'remaining_create':0}
   (root/'validation.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
   print(json.dumps({name:report[name]},ensure_ascii=False),flush=True)
+ scope['global_readback_performed']=len(report)==len(data)
+ scope['completed_tables']=list(report)
+ (root/'scope.json').write_text(json.dumps(scope,ensure_ascii=False,indent=2),encoding='utf-8')
 if __name__=='__main__':
- p=argparse.ArgumentParser();p.add_argument('--run',required=True);a=p.parse_args();run(a.run)
+ p=argparse.ArgumentParser();p.add_argument('--run',required=True);p.add_argument('--full',action='store_true');p.add_argument('--tables',help='Comma separated table names');a=p.parse_args();run(a.run,a.full,a.tables.split(',') if a.tables else None)

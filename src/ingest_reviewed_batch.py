@@ -17,7 +17,8 @@ def ingest(c,d):
     for r in d['reviews']:
         wid=r['work_id'];assert wid not in seen;seen.add(wid)
         w=c.execute('select * from works where id=?',(wid,)).fetchone();assert w and w['title'] in r['query'] and w['author'] in r['query']
-        for media in MEDIA[1:]:
+        for media in r.get('checked_media',MEDIA[1:]):
+            assert media in MEDIA
             status=r.get('statuses',{}).get(media,'已调查未发现')
             prior=c.execute('select status from coverage where work_id=? and media=?',(wid,media)).fetchone();assert prior and prior[0] in ['未调查',status],'Stronger or changed evidence needs explicit reconciliation'
             checked(c,wid,media,status,r['query'],evs[r['source']],r.get('gaps',{}).get(media,'仅中文书名+作者索引初查；未穷尽站内、海外译名、下架和历史；未发现不等于未开发'))
