@@ -12,6 +12,8 @@ def save(batch,cloud=None):
  blocked=c.execute("select count(*) from coverage where task_type='work_media' and media='电子书' and status='访问受阻'").fetchone()[0]
  locked=c.execute("select count(*) from coverage where task_type='work_media' and media='电子书' and status='访问受阻' and gap like '作品页显示被锁定或删除%'").fetchone()[0]
  cp_note=f'长佩{cp_detail}条有公开网页详情证据；读取器曾仅返回页脚，历史访问限制保留，不等于当前全部受阻。'
+ directory_access=ROOT/'data/directory-access.json'
+ directory_note=json.loads(directory_access.read_text(encoding='utf-8'))['jj_page11'] if directory_access.exists() else '晋江目录第11页需合法登录'
  stamp=now();p={'at':stamp,'batch':batch,'cutoff':'2026-11-10','status':'部分完成','candidate_source_records':n,'qualified_source_records':qualified,'touched_records':touched,'metadata_records':detail,'non_ebook_initial_search_records':cross,'no_checks_yet':n-touched,'remaining_jj_detail':len(pending),'next_jj_detail':pending[:10],'counts':counts,'cloud_validation':cloud,'global_denominator':None}
  (ROOT/'data/progress.json').write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
  (ROOT/'data'/f'progress-{batch}.json').write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
@@ -25,7 +27,7 @@ P1进行中；全量目标不变，行业调查未完成。{n}条候选来源记
 
 产品{counts['products']}条、事件{counts['events']}条、指标{counts['observations']}项、证据{counts['evidence']}条、核查历史{counts['check_history']}条。原首轮12部样本标记保留，后续批次不追加为样本。字段空白不填零，当前累计不填历史。
 
-晋江目录第11页需合法登录；详情电子书核查有{blocked}条访问受阻，其中{locked}条已由原响应确认显示锁定或删除提示，具体状态仍待证。未知解析失败先核对原响应，不能直接判定为账号限制。来源暂停时继续其他独立来源，不绕过。{cp_note}剩余晋江详情{len(pending)}条；所有作品仍需各媒介站内、海外译名、下架及历史商业表现深查。
+{directory_note}；详情电子书核查有{blocked}条访问受阻，其中{locked}条已由原响应确认显示锁定或删除提示，具体状态仍待证。未知解析失败先核对原响应，不能直接判定为账号限制。来源暂停时继续其他独立来源，不绕过。{cp_note}剩余晋江详情{len(pending)}条；所有作品仍需各媒介站内、海外译名、下架及历史商业表现深查。
 
 飞书只用CLI。每批差异预览、幂等写入、完整分页回读和关联核验。最新云端核验位置：{cloud or '尚待本批同步'}；真实部署位置和回执不入Git。超过2000行必须继续分页，不静默截断。
 
