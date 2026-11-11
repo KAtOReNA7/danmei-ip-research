@@ -33,6 +33,7 @@ def datasets():
  data['调查说明'][2]['内容']=f'{len(works)}条候选来源记录；{touched}条至少进行一项初查，{detail}条有详情证据，{media_checked}条有非电子书初查。初查不等于全媒介完成，目录分母未知，不报告全站覆盖率。'
  data['调查说明'].append({'项目':'目录覆盖限制','内容':'最新发表目录偏向近期作品，不能据此推断全行业开发率；历史锁删、迁移及其他年份目录仍有缺口。'})
  evidence_urls={r['id']:r['url'] for r in c.execute('select id,url from evidence')}
+ product_names={r['id']:r['title'] for r in c.execute('select id,title from products')}
  data['作品目录']=[];data['覆盖与缺口']=[]
  for w in works:
   data['作品目录'].append({'书名':w['title'],'作者':w['author'],'来源平台':w['platform'],'题材原文':w['category_raw'],'连载状态':w['serial_status'],'纳入状态':w['inclusion_status'],'纳入依据':w['inclusion_basis'],'签约原文':w['signing_raw'],'来源':w['source_url'],'样本':str(w['sample']),'后台键':w['id']})
@@ -45,9 +46,14 @@ def datasets():
   for r in c.execute('select * from '+t):
    row={label:None if r[col] is None else str(r[col]) for col,label in fields.items()}
    if 'work_id' in r.keys():row['作品']=names.get(r['work_id'])
-   if t in ['events','observations']:row['来源']=evidence_urls.get(r['evidence_id'])
-   if t=='observations':row['显示精度']={'rounded_display':'近似展示（万）','displayed_integer':'页面整数','missing':'缺失'}.get(r['precision'],r['precision']);row['标准指标']=r['metric_standard']
+   if t in ['events','observations']:
+    row['来源']=evidence_urls.get(r['evidence_id'])
+    row['产品键']=r['product_id'];row['对应产品']=product_names.get(r['product_id'])
+   if t=='observations':
+    row['显示精度']={'rounded_display':'近似展示（万）','displayed_integer':'页面整数','missing':'缺失'}.get(r['precision'],r['precision']);row['标准指标']=r['metric_standard']
+    row['下界']=None if r['lower_bound'] is None else str(r['lower_bound']);row['上界']=None if r['upper_bound'] is None else str(r['upper_bound'])
    if t=='products':
+    row.update({'父项目键':r['parent_id'],'父项目':product_names.get(r['parent_id']),'季卷':r['season'],'来源标识':r['source_id'],'商业模式':r['pay_model'],'发行方':r['distributor'],'证据键':r['evidence_id'],'记录层级':'季/卷/版本子记录' if r['parent_id'] else '根记录（含项目、待核或窗口外，结合状态判断）'})
     ids=[x[0] for x in c.execute('select work_id from product_works where product_id=?',(r['id'],))]
     row['关联作品键']='|'.join(ids);row['作品']='；'.join(names.get(x,x) for x in ids)
    data[name].append(row)

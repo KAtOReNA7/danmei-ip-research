@@ -1,9 +1,9 @@
-"""Add source and precision columns through the CLI, without altering records."""
+"""Add provenance, product grain and bound columns via CLI; records sync separately."""
 from feishu_sync import *
 
 def main():
  cfg=json.loads(CONFIG.read_text(encoding='utf-8'));report={}
- for name,wanted in [('事件时间线',['来源']),('指标观测',['来源','显示精度','标准指标'])]:
+ for name,wanted in [('产品与版本',['父项目键','父项目','季卷','来源标识','商业模式','发行方','证据键','记录层级']),('事件时间线',['来源','产品键','对应产品']),('指标观测',['来源','显示精度','标准指标','产品键','对应产品','下界','上界'])]:
   args=['--base-token',cfg['base_token'],'--table-id',cfg['tables'][name]]
   schema=cli(['+field-list',*args],'evidence-fields-before-'+name)['data']['fields']
   existing={f['name'] for f in schema};missing=[{'name':x,'type':'text'} for x in wanted if x not in existing]

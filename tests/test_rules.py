@@ -6,6 +6,23 @@ from rules import *
 from feishu_sync import pending_rows
 from feishu_incremental import diff_rows
 class Rules(unittest.TestCase):
+ def test_feishu_product_grain_and_event_identity(self):
+  from unittest.mock import patch
+  from research import upsert
+  from feishu_sync import datasets
+  c=connect(':memory:');wid=add_work(c,'平台','projection','作品','作者','纯爱','完结','url',None)
+  upsert(c,'products',dict(id='project',title='项目父记录',media='电子书'))
+  upsert(c,'products',dict(id='volume',parent_id='project',title='卷一',media='电子书',season='卷1',source_id='数字版ISBN',pay_model='单卷零售'))
+  c.execute('insert into product_works values(?,?,?)',('volume',wid,None))
+  upsert(c,'events',dict(id='event',work_id=wid,product_id='volume',event_type='数字发行'))
+  upsert(c,'observations',dict(id='threshold',work_id=wid,product_id='volume',lower_bound=200000000,unit='次',temporal_type='累计阈值'))
+  with patch('feishu_sync.connect',return_value=c):d=datasets()
+  child=next(r for r in d['产品与版本'] if r['后台键']=='volume')
+  self.assertEqual((child['父项目键'],child['父项目'],child['季卷']),('project','项目父记录','卷1'))
+  self.assertEqual(child['来源标识'],'数字版ISBN');self.assertEqual(child['商业模式'],'单卷零售')
+  self.assertEqual((d['事件时间线'][0]['产品键'],d['事件时间线'][0]['对应产品']),('volume','卷一'))
+  self.assertEqual(float(d['指标观测'][0]['下界']),200000000)
+  self.assertIsNone(d['指标观测'][0]['解析值']);self.assertIsNone(d['指标观测'][0]['上界'])
  def test_reviewed_coverage_upgrade_is_scoped_and_guarded(self):
   from unittest.mock import patch
   from ingest_reviewed_batch import ingest
