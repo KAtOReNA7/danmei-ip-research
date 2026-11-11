@@ -6,6 +6,18 @@ from research import connect,add_work
 from ingest_cp_qualification_metadata import ingest
 
 class CPQualification(unittest.TestCase):
+    def test_generic_original_category_stays_pending(self):
+        c=connect(':memory:');rows=[]
+        for sid,category in [('generic','原创悬疑'),('explicit','百合架空')]:
+            add_work(c,'长佩',sid,'测试'+sid,'作者',None,None,'https://example/'+sid,None)
+            rows.append(dict(expected_id=sid,source_id='CP'+sid,title='测试'+sid,url='https://example/'+sid,status_metadata='作者 著'+category+'·完结',author_links=[{'author':'作者'}],captured_at='2026-11-11T10:00:00Z'))
+        with patch('ingest_cp_qualification_metadata.evidence',return_value=None):result=ingest(c,{'rows':rows,'method':'test'},'category')
+        works={r['source_id']:dict(r) for r in c.execute('select * from works')}
+        self.assertEqual(works['generic']['inclusion_status'],'待核');self.assertIsNone(works['generic']['category_mapped'])
+        self.assertEqual(works['explicit']['inclusion_status'],'排除')
+        self.assertEqual((result['category_pending'],result['excluded']),(1,1));self.assertEqual(c.execute('select count(*) from exclusions').fetchone()[0],1)
+        c.close()
+
     def test_loaded_work_signing_marker_is_preserved_without_inferring_from_absence(self):
         c=connect(':memory:')
         for sid in ['unsigned','signed','absent']:
