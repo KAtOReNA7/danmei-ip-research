@@ -27,6 +27,12 @@ def datasets():
  names={w['id']:w['title']+' / '+str(w['author']) for w in works}
  data={}
  data['调查说明']=[{'项目':k,'内容':v} for k,v in [('状态','部分完成；全量目标未变。候选来源记录不等于去重原著总数。'),('范围','晋江/长佩全部符合原发或作品签约及纯爱分类条件的作品；2024-01-01至2026-11-10；国内外；电子书保留，实体出版排除。'),('进度','1021条候选来源记录，12部试采；大部分媒介未调查。目录分母未知，不报告全站覆盖率。'),('使用','作品目录看候选身份；覆盖与缺口看9媒介状态；产品事件的公告不等于实际执行。游戏2020记录为窗口外背景。'),('数字限制','当前收藏/人气不是销量；缓存数字的采样时间未知，不作当前或历史增量。2026未满全年不能与全年直接比。'),('数据备份','完整证据和SQLite保存独立本地项目，GitHub仅代码；云表为本轮快照。'),('身份缺口','同名异作者不合并；跨站和重发版本待核。未确认作品不进入确认统计。')]]
+ touched=c.execute("select count(distinct work_id) from coverage where task_type='work_media' and status!='未调查'").fetchone()[0]
+ detail=c.execute('select count(*) from works where signing_evidence is not null').fetchone()[0]
+ media_checked=c.execute("select count(distinct work_id) from coverage where task_type='work_media' and media!='电子书' and status!='未调查'").fetchone()[0]
+ data['调查说明'][2]['内容']=f'{len(works)}条候选来源记录；{touched}条至少进行一项初查，{detail}条有详情证据，{media_checked}条有非电子书初查。初查不等于全媒介完成，目录分母未知，不报告全站覆盖率。'
+ data['调查说明'].append({'项目':'目录覆盖限制','内容':'最新发表目录偏向近期作品，不能据此推断全行业开发率；历史锁删、迁移及其他年份目录仍有缺口。'})
+ evidence_urls={r['id']:r['url'] for r in c.execute('select id,url from evidence')}
  data['作品目录']=[];data['覆盖与缺口']=[]
  for w in works:
   data['作品目录'].append({'书名':w['title'],'作者':w['author'],'来源平台':w['platform'],'题材原文':w['category_raw'],'连载状态':w['serial_status'],'纳入状态':w['inclusion_status'],'纳入依据':w['inclusion_basis'],'签约原文':w['signing_raw'],'来源':w['source_url'],'样本':str(w['sample']),'后台键':w['id']})
@@ -39,6 +45,8 @@ def datasets():
   for r in c.execute('select * from '+t):
    row={label:None if r[col] is None else str(r[col]) for col,label in fields.items()}
    if 'work_id' in r.keys():row['作品']=names.get(r['work_id'])
+   if t in ['events','observations']:row['来源']=evidence_urls.get(r['evidence_id'])
+   if t=='observations':row['显示精度']={'rounded_display':'近似展示（万）','displayed_integer':'页面整数','missing':'缺失'}.get(r['precision'],r['precision']);row['标准指标']=r['metric_standard']
    if t=='products':
     ids=[x[0] for x in c.execute('select work_id from product_works where product_id=?',(r['id'],))]
     row['关联作品键']='|'.join(ids);row['作品']='；'.join(names.get(x,x) for x in ids)

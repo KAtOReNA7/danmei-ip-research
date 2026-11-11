@@ -10,6 +10,24 @@ from bs4 import BeautifulSoup
 ROOT=Path(__file__).resolve().parents[1]
 TZ=timezone(timedelta(hours=8))
 MEDIA=['电子书','有声书','广播剧','漫画','动画','影视短剧','游戏','官方周边联名','舞台线下']
+JJ_PENDING_WHERE="platform='晋江' and signing_evidence is null and not exists (select 1 from coverage cv where cv.work_id=works.id and cv.media='电子书' and cv.status='访问受阻' and cv.gap like '作品页显示被锁定或删除%')"
+
+class WorkUnavailable(RuntimeError):
+    """A specific work is locked/deleted; other public works remain independent."""
+    pass
+
+def jj_identity(page_title,author_links=None):
+    # The site's outer book brackets may contain another pair in the actual title.
+    # Anchor the author at the site suffix rather than the first underscore.
+    if author_links:
+        pairs=set()
+        for link in author_links:
+            author=link['text']
+            match=re.match(r'^《(.*)》'+re.escape(author)+r'(?:_|$)',page_title)
+            if match:pairs.add((match.group(1),author))
+        return next(iter(pairs)) if len(pairs)==1 else None
+    match=re.match(r'^《(.*)》(.+?)_晋江文学城(?:_|$)',page_title)
+    return (match.group(1),match.group(2)) if match else None
 def now(): return datetime.now(TZ).isoformat(timespec='seconds')
 def key(prefix,*parts): return prefix+'_'+hashlib.sha256(json.dumps(parts,ensure_ascii=False,sort_keys=True).encode()).hexdigest()[:20]
 def connect(path=None):
@@ -33,7 +51,8 @@ def add_work(c,platform,pid,title,author,category,status,url,eid,basis='平台�
     existing=c.execute('select * from works where id=?',(wid,)).fetchone()
     if existing and existing['inclusion_status']=='已确认' and inclusion!='已确认':
         inclusion=existing['inclusion_status']; basis=existing['inclusion_basis']; eid=existing['identity_evidence']
-    upsert(c,'works',dict(id=wid,title=title,aliases=[],author=author,platform=platform,source_id=str(pid),source_url=url,category_raw=category,category_mapped='纯爱' if category and '纯爱' in category else None,serial_status=status,inclusion_status=inclusion,inclusion_basis=basis,identity_evidence=eid,first_seen=existing['first_seen'] if existing else now(),last_seen=now()))
+    aliases=json.loads(existing['aliases']) if existing and existing['aliases'] else []
+    upsert(c,'works',dict(id=wid,title=title,aliases=aliases,author=author,platform=platform,source_id=str(pid),source_url=url,category_raw=category,category_mapped='纯爱' if category and '纯爱' in category else None,serial_status=status,inclusion_status=inclusion,inclusion_basis=basis,identity_evidence=eid,first_seen=existing['first_seen'] if existing else now(),last_seen=now()))
     for media in MEDIA:
         cid=key('cov',wid,media)
         c.execute('INSERT OR IGNORE INTO coverage(id,task_type,work_id,media,status,query_scope,last_run) VALUES(?,?,?,?,?,?,?)',(cid,'work_media',wid,media,'未调查','尚未执行',now()))
@@ -85,7 +104,7 @@ def jj_directory(start=1,pages=1,params=None,batch='jj-latest'):
             upsert(c,'coverage',dict(id=cid,task_type='directory',partition=batch,status='访问受阻',query_scope=url,cursor=str(page),gap=str(e),last_run=now())); c.commit(); print(str(e),flush=True); break
         time.sleep(1.2)
     c.close()
-def jj_detail(pid):
+def jj_detail(pid,as_sample=False,quiet=False):
     c=connect(); url=f'https://www.jjwxc.net/onebook.php?novelid={pid}'
     s=fetch(url); text=s.get_text(' ',strip=True)
     title=s.title.get_text() if s.title else ''
@@ -104,12 +123,18 @@ def jj_detail(pid):
     eid=evidence(c,url,title,source,'晋江文学城')
     cat=next((x.split('：',1)[-1].strip() for x in meta if '文章类型' in x),None)
     serial=next((x.split('：',1)[-1].strip() for x in meta if '文章进度' in x),None)
-    match=re.search('《(.+?)》([^_]+)',title)
-    wtitle=match.group(1) if match else str(pid); wauthor=match.group(2) if match else (a[0]['text'] if a else None)
+    identity=jj_identity(title,a)
     signed=next((x for x in meta if '签约状态' in x),None)
+    if not identity or not cat or not signed:
+        if any('被锁定或删除文章' in link['text'] for link in a):
+            c.commit();c.close()
+            raise WorkUnavailable('作品页显示被锁定或删除文章的作者专栏；具体锁定或删除状态不明；证据='+eid)
+        c.close()
+        raise RuntimeError('作品身份/分类/签约元数据未完整返回；保留原记录，不覆盖为零或猜测标题')
+    wtitle,wauthor=identity
     confirmed=bool(cat and '纯爱' in cat and signed and '未签约' not in signed and '签约' in signed)
     wid=add_work(c,'晋江',pid,wtitle,wauthor,cat,serial,url,eid,'作品页题材；'+str(signed),'已确认' if confirmed else '待核')
-    c.execute('update works set signing_raw=?,signing_evidence=?,sample=1 where id=?',(signed,eid,wid))
+    c.execute('update works set signing_raw=?,signing_evidence=?,sample=max(sample,?) where id=?',(signed,eid,int(as_sample),wid))
     for label,val in metrics.items():
         upsert(c,'observations',dict(id=key('obs',wid,label,eid),work_id=wid,metric_raw=label,metric_standard={'当前被收藏数':'作品收藏','总书评数':'评论','文章积分':'平台积分','营养液数':'营养液'}[label],raw_value=val,value=float(val.replace(',','')) if val is not None else None,unit='平台原单位',temporal_type='当前显示累计',observed_at=now(),period_start=None,period_end=None,precision='displayed_integer' if val else 'missing',missing_reason=None if val else '页面未返回可解析数值',comparison_version='jjwxc:'+label+':v1',evidence_id=eid))
     if '[VIP]' in text:
@@ -117,7 +142,12 @@ def jj_detail(pid):
         upsert(c,'products',dict(id=p,title=wtitle+'（晋江电子连载）',media='电子书',language='简体中文',markets=None,platform='晋江',source_id=str(pid),source_url=url,pay_model='VIP章节付费；不采集正文',status='当前可见',confirmation='已确认' if confirmed else '发现待核',evidence_id=eid))
         c.execute('INSERT OR IGNORE INTO product_works VALUES(?,?,?)',(p,wid,eid))
         checked(c,wid,'电子书','已确认' if confirmed else '发现待核','晋江作品页：VIP标识、身份及题材',eid,'未核实销售、订阅人数与发行市场')
-    c.commit(); print(json.dumps({'id':wid,'title':wtitle,'source':source,'inclusion':confirmed},ensure_ascii=False)); c.close()
+    else:
+        checked(c,wid,'电子书','发现待核','晋江作品页：在线连载元数据；未发现本页VIP标识',eid,'原发资格或付费商业模式待核；无VIP不代表没有站外电子版')
+    c.commit()
+    result={'id':wid,'title':wtitle,'source':source,'inclusion':confirmed,'evidence_id':eid}
+    if not quiet: print(json.dumps(result,ensure_ascii=False))
+    c.close();return result
 def export():
     c=connect(); counts={}
     for t in ['works','products','product_works','events','observations','evidence','coverage','check_history','source_matrix','exclusions']:
@@ -133,7 +163,7 @@ def export():
 def backup():
     c=connect(); stamp=datetime.now(TZ).strftime('%Y%m%d-%H%M%S'); dest=ROOT/'backups'/stamp;dest.mkdir()
     with sqlite3.connect(dest/'research.sqlite') as b:c.backup(b)
-    c.close(); files=[*sorted((ROOT/'evidence').rglob('*')),*sorted((ROOT/'exports').rglob('*')),*sorted((ROOT/'data').glob('*.json')),*sorted((ROOT/'receipts').rglob('*'))]
+    c.close(); files=[*sorted((ROOT/'evidence').rglob('*')),*sorted((ROOT/'exports').rglob('*')),*sorted((ROOT/'data').glob('*.json')),*sorted((ROOT/'data').glob('*.py')),*sorted((ROOT/'receipts').rglob('*'))]
     manifest={}
     with zipfile.ZipFile(dest/'research-evidence.zip','w',zipfile.ZIP_DEFLATED) as z:
         z.write(dest/'research.sqlite','data/research.sqlite');manifest['data/research.sqlite']=hashlib.sha256((dest/'research.sqlite').read_bytes()).hexdigest()
