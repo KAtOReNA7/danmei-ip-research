@@ -28,6 +28,8 @@ class Rules(unittest.TestCase):
   upsert(c,'events',dict(id='event',work_id=wid,product_id='volume',event_type='数字发行'))
   upsert(c,'observations',dict(id='threshold',work_id=wid,product_id='volume',lower_bound=200000000,unit='次',temporal_type='累计阈值'))
   upsert(c,'coverage',dict(id='qualification',task_type='qualification',work_id=wid,status='访问受阻',query_scope='作品资格核验',gap='详情不存在；历史授权保留'))
+  upsert(c,'coverage',dict(id='relation',task_type='identity_relation',work_id=wid,status='待核',query_scope='跨站关系核验',gap='关系未证，不自动合并'))
+  c.execute('update works set aliases=? where id=?',('["出版题名"]',wid))
   with patch('feishu_sync.connect',return_value=c):d=datasets()
   child=next(r for r in d['产品与版本'] if r['后台键']=='volume')
   self.assertEqual((child['父项目键'],child['父项目'],child['季卷']),('project','项目父记录','卷1'))
@@ -40,6 +42,8 @@ class Rules(unittest.TestCase):
   self.assertIn('作品资格核验',coverage['核查范围'])
   self.assertIn('详情不存在；历史授权保留',coverage['缺口'])
   self.assertEqual(coverage['广播剧'],'未调查')
+  self.assertIn('关系未证，不自动合并',coverage['缺口'])
+  self.assertEqual(d['作品目录'][0]['别名'],'出版题名')
  def test_reviewed_coverage_upgrade_is_scoped_and_guarded(self):
   from unittest.mock import patch
   from ingest_reviewed_batch import ingest

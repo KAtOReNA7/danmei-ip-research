@@ -20,18 +20,24 @@ def ingest(c,d,batch):
             assert r['source_id']=='CP'+sid and r['title']==w['title']
             author,meta=r['status_metadata'].split(' 著',1)
             assert author==w['author'] and all(a['author']==author for a in r['author_links'])
-            match=re.fullmatch(r'(纯爱|言情|百合)([^·]+)·(完结|连载)',meta)
+            match=re.fullmatch(r'(纯爱|言情|百合)([^·]+)·(完结|连载)(?:·(尚未签约|已签约))?',meta)
             assert match,meta
             category=match[1]+match[2];pure=match[1]=='纯爱'
             assert not w['category_raw'] or w['category_raw']==category,'Category conflict requires review'
             assert pure or w['inclusion_status']!='已确认','Confirmed eligibility conflict'
             result['pure' if pure else 'excluded']+=1;status='已核验'
             gap=gap if pure else '官方分类为'+category+'，不纳入纯爱统计；原始清单记录保留，不改判题材。'
+            if match[4]:
+                assert not w['signing_raw'] or w['signing_raw']==match[4],'Signing marker conflict requires review'
+                gap+=' 当前真实身份加载后的作品页标记'+match[4]+'；不反推历史状态或衍生授权发生时间。'
         eid=evidence(c,r['url'],'长佩作品资格元数据：'+w['title'],r,'长佩文学',method=d['method'],accessed=r['captured_at'])
         if not r.get('result'):
             basis=w['inclusion_basis'] if pure and w['inclusion_status']=='已确认' else gap
             inclusion=w['inclusion_status'] if pure else '排除'
+            if pure and match[4]=='已签约':
+                inclusion='已确认';basis='官方作品页纯爱分类及作品级已签约标记；原发关系及签约日期另核，不据此推衍生授权范围。'
             c.execute('update works set category_raw=?,category_mapped=?,serial_status=?,identity_evidence=?,inclusion_status=?,inclusion_basis=?,last_seen=? where id=?',(category,'纯爱' if pure else None,match[3],eid,inclusion,basis,r['captured_at'],w['id']))
+            if match[4]:c.execute('update works set signing_raw=?,signing_evidence=? where id=?',(match[4],eid,w['id']))
             if not pure:upsert(c,'exclusions',dict(id=key('exclude','cp-category',sid),source_url=r['url'],title=w['title'],reason=gap,evidence_id=eid))
         upsert(c,'coverage',dict(id=cid,task_type='qualification',work_id=w['id'],partition='cp-work-qualification',query_scope='官方作品详情必要身份及题材；非媒介售出核验',cursor=sid,status=status,discovered=1,new_unique=0,first_id=sid,last_id=sid,evidence_id=eid,gap=gap,last_run=r['captured_at']))
         result['checked']+=1

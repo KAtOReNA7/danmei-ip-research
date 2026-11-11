@@ -40,8 +40,10 @@ def datasets():
  data['作品目录']=[];data['覆盖与缺口']=[]
  for w in works:
   data['作品目录'].append({'书名':w['title'],'作者':w['author'],'来源平台':w['platform'],'题材原文':w['category_raw'],'连载状态':w['serial_status'],'纳入状态':w['inclusion_status'],'纳入依据':w['inclusion_basis'],'签约原文':w['signing_raw'],'来源':w['source_url'],'样本':str(w['sample']),'后台键':w['id']})
+  aliases=json.loads(w['aliases'] or '[]');assert isinstance(aliases,list)
+  data['作品目录'][-1]['别名']='；'.join(a if isinstance(a,str) else json.dumps(a,ensure_ascii=False) for a in aliases) or None
   cov=list(c.execute("select * from coverage where work_id=? and task_type='work_media'",(w['id'],)))
-  qualification=list(c.execute("select * from coverage where work_id=? and task_type='qualification'",(w['id'],)))
+  qualification=list(c.execute("select * from coverage where work_id=? and task_type in ('qualification','identity_relation')",(w['id'],)))
   notes=cov+qualification
   row={'作品':names[w['id']],'后台键':w['id'],'关联作品键':w['id'],**{r['media']:r['status'] for r in cov},'核查范围':' | '.join(sorted(set(r['query_scope'] or '' for r in notes))),'缺口':' | '.join(sorted(set(r['gap'] or '' for r in notes)))}
   data['覆盖与缺口'].append(row)
