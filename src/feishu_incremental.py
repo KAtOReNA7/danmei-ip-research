@@ -35,7 +35,8 @@ def run(runid):
  for name,rows in data.items():
   tid=cfg['tables'][name]
   schema=call(['+field-list','--base-token',base,'--table-id',tid],'schema-'+name)['data']['fields']
-  fields={f['name'] for f in schema};assert set(rows[0])<=fields
+  fields={f['name'] for f in schema}
+  assert all(set(row)<=fields for row in rows),'Every projected row must use this table schema'
   before=read(name,'before');baseline=None
   prior=ROOT/'receipts'/('latest-'+name+'.json')
   if prior.exists():baseline=json.loads(prior.read_text(encoding='utf-8'))

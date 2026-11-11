@@ -27,6 +27,7 @@ class Rules(unittest.TestCase):
   c.execute('insert into product_works values(?,?,?)',('volume',wid,None))
   upsert(c,'events',dict(id='event',work_id=wid,product_id='volume',event_type='数字发行'))
   upsert(c,'observations',dict(id='threshold',work_id=wid,product_id='volume',lower_bound=200000000,unit='次',temporal_type='累计阈值'))
+  upsert(c,'coverage',dict(id='qualification',task_type='qualification',work_id=wid,status='访问受阻',query_scope='作品资格核验',gap='详情不存在；历史授权保留'))
   with patch('feishu_sync.connect',return_value=c):d=datasets()
   child=next(r for r in d['产品与版本'] if r['后台键']=='volume')
   self.assertEqual((child['父项目键'],child['父项目'],child['季卷']),('project','项目父记录','卷1'))
@@ -34,6 +35,11 @@ class Rules(unittest.TestCase):
   self.assertEqual((d['事件时间线'][0]['产品键'],d['事件时间线'][0]['对应产品']),('volume','卷一'))
   self.assertEqual(float(d['指标观测'][0]['下界']),200000000)
   self.assertIsNone(d['指标观测'][0]['解析值']);self.assertIsNone(d['指标观测'][0]['上界'])
+  coverage=d['覆盖与缺口'][0]
+  self.assertNotIn(None,coverage);self.assertNotIn('null',coverage)
+  self.assertIn('作品资格核验',coverage['核查范围'])
+  self.assertIn('详情不存在；历史授权保留',coverage['缺口'])
+  self.assertEqual(coverage['广播剧'],'未调查')
  def test_reviewed_coverage_upgrade_is_scoped_and_guarded(self):
   from unittest.mock import patch
   from ingest_reviewed_batch import ingest

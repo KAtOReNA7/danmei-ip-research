@@ -7,8 +7,8 @@ def save(batch,cloud=None):
  touched=c.execute("select count(distinct work_id) from coverage where task_type='work_media' and status!='未调查'").fetchone()[0]
  cross=c.execute("select count(distinct work_id) from coverage where task_type='work_media' and media!='电子书' and status!='未调查'").fetchone()[0]
  pending=[dict(r) for r in c.execute("select id,source_id,title,author,platform from works where platform='晋江' and signing_evidence is null order by cast(source_id as integer)")]
- detail=c.execute('select count(*) from works where signing_evidence is not null').fetchone()[0]
- cp_detail=c.execute("select count(*) from works where platform='长佩' and signing_evidence is not null").fetchone()[0]
+ detail=c.execute("select count(*) from works where signing_evidence is not null or exists(select 1 from coverage cv where cv.work_id=works.id and cv.task_type='qualification' and cv.status='已核验')").fetchone()[0]
+ cp_detail=c.execute("select count(*) from works where platform='长佩' and (signing_evidence is not null or exists(select 1 from coverage cv where cv.work_id=works.id and cv.task_type='qualification' and cv.status='已核验'))").fetchone()[0]
  blocked=c.execute("select count(*) from coverage where task_type='work_media' and media='电子书' and status='访问受阻'").fetchone()[0]
  locked=c.execute("select count(*) from coverage where task_type='work_media' and media='电子书' and status='访问受阻' and gap like '作品页显示被锁定或删除%'").fetchone()[0]
  cp_note=f'长佩{cp_detail}条有公开网页详情证据；读取器曾仅返回页脚，历史访问限制保留，不等于当前全部受阻。'

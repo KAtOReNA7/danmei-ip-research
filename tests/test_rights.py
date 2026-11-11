@@ -25,3 +25,4 @@ class RightsRules(unittest.TestCase):
         self.assertEqual(rights_media('漫画线下活动'),'舞台线下')
         self.assertEqual(rights_media('外文广播剧(日本)'),'广播剧')
         self.assertIsNone(rights_media('音乐'))
+        self.assertIsNone(rights_media('互动小说'))
