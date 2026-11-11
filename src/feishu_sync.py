@@ -32,6 +32,9 @@ def datasets():
  media_checked=c.execute("select count(distinct work_id) from coverage where task_type='work_media' and media!='电子书' and status!='未调查'").fetchone()[0]
  data['调查说明'][2]['内容']=f'{len(works)}条候选来源记录；{touched}条至少进行一项初查，{detail}条有详情证据，{media_checked}条有非电子书初查。初查不等于全媒介完成，目录分母未知，不报告全站覆盖率。'
  data['调查说明'].append({'项目':'目录覆盖限制','内容':'最新发表目录偏向近期作品，不能据此推断全行业开发率；历史锁删、迁移及其他年份目录仍有缺口。'})
+ data['调查说明'][0]['内容']='部分完成；V1.1主线为2024年以来已售出/已授权签约的权利，全量目标未变。上线不证明窗口内售出。'
+ data['调查说明'][3]['内容']='先看授权签约明细及签约时间；未上线的已售保留。签约月份横跨截止日或日期缺失时不计窗口内确认；产品与表现单列。'
+ data['调查说明'].append({'项目':'售出统计口径','内容':'官方清单行数、去重作品数、权利组合及独立交易数分别计；同合同范围不明不把多行当多笔。当前披露/采集时间不代替签约时间，未确认作品另列。'})
  evidence_urls={r['id']:r['url'] for r in c.execute('select id,url from evidence')}
  product_names={r['id']:r['title'] for r in c.execute('select id,title from products')}
  data['作品目录']=[];data['覆盖与缺口']=[]
@@ -57,6 +60,8 @@ def datasets():
     ids=[x[0] for x in c.execute('select work_id from product_works where product_id=?',(r['id'],))]
     row['关联作品键']='|'.join(ids);row['作品']='；'.join(names.get(x,x) for x in ids)
    data[name].append(row)
+ rights_fields={'id':'后台键','work_id':'关联作品键','rights_type_raw':'权利类型原文','media':'媒介','market_raw':'授权地域原文','language':'语言','grantor':'授权方','licensee':'受让方','agent':'代理方','contract_time_raw':'签约时间原文','contract_start':'签约区间开始','contract_end':'签约区间结束','time_precision':'时间精度','announcement_time':'官宣时间','window_role':'窗口归属','sale_status':'售出证据状态','deal_id':'独立交易键','amount':'授权金额','currency':'币种','source_url':'来源','source_locator':'来源定位','evidence_id':'证据键','gap':'缺口'}
+ data['授权签约']=[{**{label:None if r[col] is None else str(r[col]) for col,label in rights_fields.items()},'作品':names[r['work_id']]} for r in c.execute('select * from rights_records order by id')]
  data['目录批次']=[{'分区':r['partition'],'游标':r['cursor'],'状态':r['status'],'查询范围':r['query_scope'],'发现行数':str(r['discovered']) if r['discovered'] is not None else None,'新候选数':str(r['new_unique']) if r['new_unique'] is not None else None,'缺口':r['gap'],'后台键':r['id']} for r in c.execute("select * from coverage where task_type='directory'")]
  c.close();return data
 def main():

@@ -152,7 +152,7 @@ def jj_detail(pid,as_sample=False,quiet=False):
     c.close();return result
 def export():
     c=connect(); counts={}
-    for t in ['works','products','product_works','events','observations','evidence','coverage','check_history','source_matrix','exclusions']:
+    for t in ['works','rights_records','products','product_works','events','observations','evidence','coverage','check_history','source_matrix','exclusions']:
         rows=[dict(r) for r in c.execute('select * from '+t)]; counts[t]=len(rows)
         (ROOT/f'exports/{t}.jsonl').write_text(''.join(json.dumps(r,ensure_ascii=False)+'\n' for r in rows),encoding='utf-8')
         cols=[r[1] for r in c.execute('pragma table_info('+t+')')]

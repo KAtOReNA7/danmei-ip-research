@@ -1,5 +1,7 @@
 # 接续
 
+当前口径V1.1：售出/授权签约优先，上线不证明窗口内新售。先读exports/rights-sales-report.md、rights_records导出及对应官方证据。尚未上线的已签约记录保留；清单多行不当多合同，未知签约时间不按上线或排序推定。
+
 1. 阅读 PRD、AGENTS、STATUS、私有 exports/coverage_summary.json 和 receipts/validation.json。
 2. 确认当前目录是独立项目。不要使用 ebook 配置、凭据或工作流。只有一个写入端。
 3. 在新设备拉代码后，单独恢复匹配的数据快照；对 ZIP 内 manifest.json 逐文件校验 SHA256；恢复 SQLite 后跑 integrity_check 和 foreign_key_check。

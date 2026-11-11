@@ -2,7 +2,7 @@
 from research import *
 def save(batch,cloud=None):
  c=connect();n=c.execute('select count(*) from works').fetchone()[0]
- counts={t:c.execute('select count(*) from '+t).fetchone()[0] for t in ['products','events','observations','evidence','check_history']}
+ counts={t:c.execute('select count(*) from '+t).fetchone()[0] for t in ['rights_records','products','events','observations','evidence','check_history']}
  qualified=c.execute("select count(*) from works where inclusion_status='已确认'").fetchone()[0]
  touched=c.execute("select count(distinct work_id) from coverage where task_type='work_media' and status!='未调查'").fetchone()[0]
  cross=c.execute("select count(distinct work_id) from coverage where task_type='work_media' and media!='电子书' and status!='未调查'").fetchone()[0]
@@ -24,6 +24,10 @@ def save(batch,cloud=None):
     backup_note='Google Drive私有快照已上传并下载回读，SHA256及包内校验通过；远端快照时间与本轮本地进度分别记录，后续批次不冒充已备份。'
  stamp=now();p={'at':stamp,'batch':batch,'cutoff':'2026-11-10','status':'部分完成','candidate_source_records':n,'qualified_source_records':qualified,'touched_records':touched,'metadata_records':detail,'non_ebook_initial_search_records':cross,'no_checks_yet':n-touched,'remaining_jj_detail':len(pending),'next_jj_detail':pending[:10],'counts':counts,'cloud_validation':cloud,'global_denominator':None,'backup_status':backup_note}
  (ROOT/'data/progress.json').write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
+ p['research_priority']='V1.1：窗口内已售出/已授权签约；上线不证明窗口内售出'
+ p['rights_window_summary']=[dict(r) for r in c.execute('select window_role,count(*) source_rows,count(distinct work_id) works from rights_records group by window_role')]
+ p['independent_deal_count']=None
+ (ROOT/'data/progress.json').write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
  (ROOT/'data'/f'progress-{batch}.json').write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
  text=f'''# 执行状态
 
@@ -41,7 +45,9 @@ P1进行中；全量目标不变，行业调查未完成。{n}条候选来源记
 
 本地每批保留状态与证据，快照有SHA256清单。代码提交不含完整研究数据或凭据。{backup_note}
 
-下一步：按data/progress.json及批次清单续查；先核对未完成CLI写入实际结果，再恢复，不能盲重试。原发/签约、跨站版本及已发现线索分别复核。无周期任务或通知。
+主线V1.1：窗口内已售出/已授权签约优先，上线不证明2024年以来售出。权利披露{counts['rights_records']}行，独立合同数未知；详见exports/rights-sales-report.md。签约日期缺失及跨截止日单列，泛媒介初查不等于售出调查完成。
+
+下一步：优先追官方签约披露的时间、地域/语言、受让方、续约追加及同合同关系，再补执行与表现。按data/progress.json及批次清单续查；未完成CLI先核实际结果，不能盲重试。无周期任务或通知。
 '''
  (ROOT/'docs/STATUS.md').write_text(text,encoding='utf-8');c.close();return p
 if __name__=='__main__':
