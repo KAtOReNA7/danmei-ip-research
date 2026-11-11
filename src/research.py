@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 ROOT=Path(__file__).resolve().parents[1]
 TZ=timezone(timedelta(hours=8))
 MEDIA=['电子书','有声书','广播剧','漫画','动画','影视短剧','游戏','官方周边联名','舞台线下']
+MEDIA_STATUSES=('未调查','已调查未发现','发现待核','已确认','访问受阻','不适用')
 JJ_PENDING_WHERE="platform='晋江' and signing_evidence is null and not exists (select 1 from coverage cv where cv.work_id=works.id and cv.media='电子书' and cv.status='访问受阻' and cv.gap like '作品页显示被锁定或删除%')"
 
 class WorkUnavailable(RuntimeError):
@@ -58,6 +59,7 @@ def add_work(c,platform,pid,title,author,category,status,url,eid,basis='平台�
         c.execute('INSERT OR IGNORE INTO coverage(id,task_type,work_id,media,status,query_scope,last_run) VALUES(?,?,?,?,?,?,?)',(cid,'work_media',wid,media,'未调查','尚未执行',now()))
     return wid
 def checked(c,wid,media,status,scope,eid=None,gap=None):
+    assert media in MEDIA and status in MEDIA_STATUSES, 'Work/media state must use the PRD enumeration'
     upsert(c,'coverage',dict(id=key('cov',wid,media),task_type='work_media',work_id=wid,media=media,status=status,query_scope=scope,evidence_id=eid,gap=gap,last_run=now()))
     upsert(c,'check_history',dict(id=key('check',wid,media,scope,eid),work_id=wid,media=media,status=status,query_scope=scope,evidence_id=eid,checked_at=now(),gap=gap))
 def fetch(url):

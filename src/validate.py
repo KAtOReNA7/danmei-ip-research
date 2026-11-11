@@ -11,6 +11,9 @@ def main():
  assert not c.execute('select platform,source_id,count(*) from works group by platform,source_id having count(*)>1').fetchall()
  n=c.execute('select count(*) from works').fetchone()[0]
  assert c.execute("select count(*) from coverage where task_type='work_media'").fetchone()[0]==n*len(MEDIA)
+ placeholders=','.join('?' for _ in MEDIA_STATUSES)
+ assert not c.execute(f"select id,status from coverage where task_type='work_media' and (status is null or status not in ({placeholders}))",MEDIA_STATUSES).fetchall(), 'Noncanonical work/media state'
+ assert not c.execute(f"select id,status from check_history where status is null or status not in ({placeholders})",MEDIA_STATUSES).fetchall(), 'Noncanonical work/media history state'
  assert not c.execute("select id from works where inclusion_status='已确认' and (identity_evidence is null or category_mapped!='纯爱')").fetchall()
  counts={}
  for path in (ROOT/'exports').glob('*.jsonl'):

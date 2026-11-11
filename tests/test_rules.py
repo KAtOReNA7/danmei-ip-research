@@ -6,6 +6,17 @@ from rules import *
 from feishu_sync import pending_rows
 from feishu_incremental import diff_rows
 class Rules(unittest.TestCase):
+ def test_unknown_media_labels_cannot_hide_unresolved_leads(self):
+  from research import checked
+  c=connect(':memory:');wid=add_work(c,'平台','unknown-state','作品','作者','纯爱','完结','url',None)
+  before=[tuple(r) for r in c.execute('select * from coverage order by id')]
+  for wrong in ('未开发','发现线索'):
+   with self.assertRaises(AssertionError):checked(c,wid,'广播剧',wrong,'未证实身份的同名音频')
+  self.assertEqual(before,[tuple(r) for r in c.execute('select * from coverage order by id')])
+  self.assertEqual(c.execute('select count(*) from check_history').fetchone()[0],0)
+  checked(c,wid,'广播剧','发现待核','同名音频存在；身份及商业性未知')
+  self.assertEqual(c.execute("select status from coverage where work_id=? and media='广播剧'",(wid,)).fetchone()[0],'发现待核')
+  c.close()
  def test_feishu_product_grain_and_event_identity(self):
   from unittest.mock import patch
   from research import upsert
