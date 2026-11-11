@@ -4,6 +4,8 @@
 
 长佩渲染清单入库使用 `src/ingest_cp_rights.py --capture 私有捕获文件 --batch 唯一批次名`；资格元数据使用 `src/ingest_cp_qualification_metadata.py --capture 私有捕获文件 --batch 唯一批次名`。先在数据库副本模拟及复跑，核对既有身份和商业记录，再单端写入。清单未映射权利类型保留原文；资格记录不能投影成空媒介列，也不改变9媒介状态。详情显示非纯爱类别时保留排除边界；链接失效不否定历史授权。当前分页边界与下一固定队列以私有接续文件为准，不沿用旧聊天中的页码。
 
+私有云端若使用基础包加补充包，补充包不能单独恢复。按恢复说明下载两包并核各自SHA；`src/build_recovery_supplement.py --base 基础包 --current 补充包 --base-url 已核基础包地址 --output 新验证目录` 会拒绝不匹配基础包、核验全部文件，并生成 `combined-recovery-check.zip`。恢复使用该合并包，保留合并清单；本地完整快照另存，云端上传与云端下载校验仍分开记录。
+
 长佩版权信息可在内置浏览器公开渲染；读取器只返回页脚时不能判整站受阻。按“改编”“海外改编”分区保存实际选中页码和行序，不复制会话、不猜API。详情首屏空标题、零值或“尚未签约”可能是加载占位；须等真实书名/作者/题材加载，不能导入占位状态或截止日后实时数值。
 
 1. 阅读 PRD、AGENTS、STATUS、私有 exports/coverage_summary.json 和 receipts/validation.json。
