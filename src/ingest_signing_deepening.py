@@ -43,6 +43,15 @@ def ingest(document):
             upsert(c,'events',dict(id=eventid,work_id=w['id'],product_id=pid,event_type='公开现场签约',
                 event_time=timing['start'],time_end=timing['end'],time_precision='日；活动签约日，非合同法律生效日',
                 description=item['event_description'],window_role=timing['window_role'],confirmation='官方明确披露',evidence_id=eid))
+        elif item.get('rights_type_raw'):
+            assert item['facts'].get('explicit_rights_scope_update') is True
+            rid=key('rights','scope-update',w['id'],item['url'],item['rights_type_raw'])
+            report['rights_rows']+=int(not c.execute('select 1 from rights_records where id=?',(rid,)).fetchone())
+            upsert(c,'rights_records',dict(id=rid,work_id=w['id'],rights_type_raw=item['rights_type_raw'],media=item['media'],
+                market_raw=item.get('market_raw'),language=item.get('language'),
+                time_precision='未知；当前授权范围更新未标发生日期或截止前状态',window_role='签约时间待核',
+                sale_status='合作方明确授权范围更新；签署期及合同角色未核',
+                source_url=item['url'],source_locator=item['source_locator'],evidence_id=eid,gap=gap))
         for original_id in item.get('related_source_rows',[]):
             prior=c.execute('select * from rights_records where id=?',(original_id,)).fetchone()
             assert prior and prior['work_id']==w['id']
