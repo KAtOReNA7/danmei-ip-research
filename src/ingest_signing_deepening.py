@@ -64,6 +64,14 @@ def ingest(document):
                 time_precision='未知；当前授权范围更新未标发生日期或截止前状态',window_role='签约时间待核',
                 sale_status='合作方明确授权范围更新；签署期及合同角色未核',
                 source_url=item['url'],source_locator=item['source_locator'],evidence_id=eid,gap=gap))
+        if item.get('authorized_project'):
+            assert item['facts'].get('explicit_authorized_project') is True
+            project=item['authorized_project']
+            pid=key('p','authorized-project',w['id'],item['media'],project['producer'],project['title'])
+            report['products']+=int(not c.execute('select 1 from products where id=?',(pid,)).fetchone())
+            upsert(c,'products',dict(id=pid,title=project['title'],media=item['media'],producer=project['producer'],
+                status=project['status'],confirmation=project['confirmation'],source_url=item['url'],evidence_id=eid))
+            c.execute('insert into product_works(product_id,work_id,evidence_id) values(?,?,?) on conflict(product_id,work_id) do update set evidence_id=excluded.evidence_id',(pid,w['id'],eid))
         for original_id in item.get('related_source_rows',[]):
             prior=c.execute('select * from rights_records where id=?',(original_id,)).fetchone()
             assert prior and prior['work_id']==w['id']
