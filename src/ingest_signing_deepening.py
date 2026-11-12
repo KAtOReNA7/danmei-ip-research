@@ -8,20 +8,24 @@ from rights_rules import sale_window,completed_signing_period
 
 
 def ingest(document):
-    c=connect(); report={'batch':document['batch'],'evidence':0,'rights_rows':0,'products':0,'events':0,'reviewed_works':0}
+    c=connect(); report={'batch':document['batch'],'evidence':0,'evidence_references':0,'rights_rows':0,'products':0,'events':0,'reviewed_items':0,'reviewed_works':0}
+    reviewed_work_ids=set()
     for item in document['items']:
         w=c.execute('select * from works where id=?',(item['work_id'],)).fetchone()
         assert w and (w['title'],w['author'])==(item['title'],item['author'])
         eid=item.get('evidence_id')
+        existed=True
         if eid:
             saved=c.execute('select * from evidence where id=?',(eid,)).fetchone()
             assert saved and saved['url']==item['url']
             assert json.loads((ROOT/saved['file_path']).read_text(encoding='utf-8'))['necessary_metadata']==item['facts']
         else:
+            predicted=key('ev',item['url'],item['facts'],document['reviewed_at'])
+            existed=bool(c.execute('select 1 from evidence where id=?',(predicted,)).fetchone())
             eid=evidence(c,item['url'],item['source_title'],item['facts'],item['source_owner'],
                          status=item['source_status'],method=item.get('method','公开网页直接核验必要元数据；无音频、正文或实时指标'),
                          published=item.get('published_at'),accessed=document['reviewed_at'])
-        report['evidence']+=1; gap=item['gap']
+        report['evidence']+=int(not existed);report['evidence_references']+=1;gap=item['gap']
         if item.get('signing_day'):
             assert item['facts']['explicit_signing_event'] is True
             timing=sale_window(item['signing_day'])
@@ -49,11 +53,16 @@ def ingest(document):
             timing=(completed_signing_period(period,item['announcement_day'],explicit_completed=True)
                     if item.get('announcement_day') else sale_window(period))
             assert timing['start'], 'Contradictory or missing actual signing period'
-            rid=key('rights','completed-period',w['id'],item['url'],period,item['rights_type_raw'])
+            parts=['completed-period',w['id'],item['url'],period,item['rights_type_raw']]
+            # A single announcement can disclose several media in one bundle.
+            # Preserve the original wording and separate only reviewed components;
+            # this never assigns independent contract identities.
+            if item.get('scope_component'):parts.append(item['scope_component'])
+            rid=key('rights',*parts)
             report['rights_rows']+=int(not c.execute('select 1 from rights_records where id=?',(rid,)).fetchone())
             upsert(c,'rights_records',dict(id=rid,work_id=w['id'],rights_type_raw=item['rights_type_raw'],media=item['media'],
                 contract_time_raw=period,contract_start=timing['start'],contract_end=timing['end'],time_precision=timing['precision']+item.get('time_precision_note',''),
-                announcement_time=item.get('announcement_day'),window_role=timing['window_role'],sale_status='第一方明确已签约/已获授权及发生期；非合同原件',
+                announcement_time=item.get('announcement_day') or item.get('published_at'),window_role=timing['window_role'],sale_status='第一方明确已签约/已获授权及发生期；非合同原件',
                 source_url=item['url'],source_locator=item['source_locator'],evidence_id=eid,gap=gap))
         elif item.get('rights_type_raw'):
             assert item['facts'].get('explicit_rights_scope_update') is True
@@ -89,7 +98,8 @@ def ingest(document):
                 (saved_gap if note in saved_gap else saved_gap+note,stamp,prior['id']))
         else:
             checked(c,w['id'],item['media'],item['coverage_status'],item['query_scope'],eid,gap)
-        report['reviewed_works']+=1
+        report['reviewed_items']+=1;reviewed_work_ids.add(w['id'])
+    report['reviewed_works']=len(reviewed_work_ids)
     c.commit();c.close()
     return report
 
