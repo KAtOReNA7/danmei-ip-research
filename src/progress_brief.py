@@ -47,6 +47,9 @@ def write_brief(progress):
         ],
         'limits':'初查/有核查不等于逐作完成；完全未查不是全部剩余；权利披露行、产品行和独立合同数不同；缺失不填零。',
     }
+    followup_path=ROOT/'data/rights-index-followup-latest.json'
+    if followup_path.exists():
+        summary['latest_rights_index_followup']=json.loads(followup_path.read_text(encoding='utf-8'))
     rows=[('至少一项媒介核查',p['touched_records'],f"{p['no_checks_yet']} 条完全未查"),
           ('至少一次非电子书媒介核查／初查',p['non_ebook_initial_search_records'],f"{summary['without_non_ebook_check']} 条尚无此类核查"),
           ('作品资格',f"{p['qualified_source_records']} 条已确认、{p['excluded_source_records']} 条排除",f"{p['work_eligibility_pending']} 条待核")]
@@ -54,6 +57,10 @@ def write_brief(progress):
            f"当前分母为 {p['candidate_source_records']} 条已发现的平台候选记录，跨站身份未核完，不称去重原著总体。两站全量边界未知，不报总体完成百分比。",'',
            '| 项目 | 已完成 | 尚待处理 |','|---|---:|---|']
     lines += [f'| {label} | {done} | {remaining} |' for label,done,remaining in rows]
+    if summary.get('latest_rights_index_followup'):
+        f=summary['latest_rights_index_followup']
+        lines += ['',f"最近权利追证批次 {f['batch']}：{f['index_reviewed_cases']} 个案件完成有限索引审阅，实际执行 {f['queries_executed']} 个去重查询，关联 {f['original_disclosure_rows']} 条原披露、{f['distinct_work_ids']} 条作品记录；其中 {f['direct_source_followup_cases']} 案另有直接来源追证。",
+                  '这是查询与来源核验进度，不能减算为相同数量作品已完成，也不能当作交易数；签署期及各案其他缺口仍须续查。']
     c=p['counts']
     combined=summary['qualified_window_combined']
     if combined:
