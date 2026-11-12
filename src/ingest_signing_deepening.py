@@ -46,13 +46,14 @@ def ingest(document):
         elif item.get('completed_signing_period'):
             assert item['facts'].get('explicit_completed_signing') is True
             period=item['completed_signing_period']
-            timing=completed_signing_period(period,item['announcement_day'],explicit_completed=True)
+            timing=(completed_signing_period(period,item['announcement_day'],explicit_completed=True)
+                    if item.get('announcement_day') else sale_window(period))
             assert timing['start'], 'Contradictory or missing actual signing period'
             rid=key('rights','completed-period',w['id'],item['url'],period,item['rights_type_raw'])
             report['rights_rows']+=int(not c.execute('select 1 from rights_records where id=?',(rid,)).fetchone())
             upsert(c,'rights_records',dict(id=rid,work_id=w['id'],rights_type_raw=item['rights_type_raw'],media=item['media'],
-                contract_time_raw=period,contract_start=timing['start'],contract_end=timing['end'],time_precision=timing['precision'],
-                announcement_time=item['announcement_day'],window_role=timing['window_role'],sale_status='第一方明确已完成签约及发生年份；非合同原件',
+                contract_time_raw=period,contract_start=timing['start'],contract_end=timing['end'],time_precision=timing['precision']+item.get('time_precision_note',''),
+                announcement_time=item.get('announcement_day'),window_role=timing['window_role'],sale_status='第一方明确已签约/已获授权及发生期；非合同原件',
                 source_url=item['url'],source_locator=item['source_locator'],evidence_id=eid,gap=gap))
         elif item.get('rights_type_raw'):
             assert item['facts'].get('explicit_rights_scope_update') is True
@@ -68,7 +69,18 @@ def ingest(document):
             assert prior and prior['work_id']==w['id']
             note=' 深查关联证据：'+eid+'；'+gap
             if note not in (prior['gap'] or ''):c.execute('update rights_records set gap=? where id=?',((prior['gap'] or '')+note,original_id))
-        checked(c,w['id'],item['media'],item['coverage_status'],item['query_scope'],eid,gap)
+        prior=c.execute("select * from coverage where id=?",(key('cov',w['id'],item['media']),)).fetchone()
+        if prior and prior['status']=='已确认' and item['coverage_status']!='已确认':
+            # A weaker new lead cannot replace the existing confirmation source.
+            stamp=now();hid=key('check',w['id'],item['media'],item['query_scope'],eid)
+            upsert(c,'check_history',dict(id=hid,work_id=w['id'],media=item['media'],status=item['coverage_status'],
+                query_scope=item['query_scope'],evidence_id=eid,checked_at=stamp,gap=gap))
+            note=' 补查待核证据：'+eid+'；'+gap
+            saved_gap=prior['gap'] or ''
+            c.execute('update coverage set gap=?,last_run=? where id=?',
+                (saved_gap if note in saved_gap else saved_gap+note,stamp,prior['id']))
+        else:
+            checked(c,w['id'],item['media'],item['coverage_status'],item['query_scope'],eid,gap)
         report['reviewed_works']+=1
     c.commit();c.close()
     return report
