@@ -4,6 +4,13 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 from rights_rules import sale_window,rights_media,license_disclosure_window
 
 class RightsRules(unittest.TestCase):
+    def test_explicit_signing_day_boundaries(self):
+        for day in ['2024-01-01','2026-08-22','2026-11-10']:
+            self.assertEqual(sale_window(day)['window_role'],'窗口内签约日期')
+        self.assertEqual(sale_window('2023-12-31')['window_role'],'窗口前背景')
+        self.assertEqual(sale_window('2026-11-11')['window_role'],'窗口后')
+        self.assertEqual(sale_window('2026-08-22')['end'],'2026-08-22T23:59:59+08:00')
+
     def test_license_disclosure_is_a_bound_not_a_signing_date(self):
         old=license_disclosure_window('2022-08-31',acquired=True)
         self.assertEqual(old['window_role'],'窗口前已获授权披露')

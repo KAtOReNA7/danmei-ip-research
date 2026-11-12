@@ -18,9 +18,11 @@ def sale_window(raw,cutoff='2026-11-10'):
         year=int(raw);start=date(year,1,1);end=date(year,12,31);precision='年；按北京时间保守区间，来源未标时区'
     elif re.fullmatch(r'\d{4}-\d{2}',raw):
         year,month=map(int,raw.split('-'));start=date(year,month,1);end=date(year,month,calendar.monthrange(year,month)[1]);precision='月；按北京时间保守区间，来源未标时区'
+    elif re.fullmatch(r'\d{4}-\d{2}-\d{2}',raw):
+        start=end=date.fromisoformat(raw);precision='日；明确签约发生日，按北京时间'
     else:
         return {'start':None,'end':None,'precision':'未知','window_role':'签约时间待核'}
-    role=('窗口内签约年份' if len(raw)==4 else '窗口内签约月份') if start>=date(2024,1,1) and end<=date.fromisoformat(cutoff) else '窗口前背景' if end<date(2024,1,1) else '窗口后' if start>date.fromisoformat(cutoff) else '跨截止日待核'
+    role=({4:'窗口内签约年份',7:'窗口内签约月份',10:'窗口内签约日期'}[len(raw)]) if start>=date(2024,1,1) and end<=date.fromisoformat(cutoff) else '窗口前背景' if end<date(2024,1,1) else '窗口后' if start>date.fromisoformat(cutoff) else '跨截止日待核'
     return {'start':start.isoformat()+'T00:00:00+08:00','end':end.isoformat()+'T23:59:59+08:00','precision':precision,'window_role':role}
 
 def rights_media(raw):
