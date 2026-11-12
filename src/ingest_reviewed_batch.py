@@ -16,7 +16,9 @@ def ingest(c,d):
     seen=set()
     for r in d['reviews']:
         wid=r['work_id'];assert wid not in seen;seen.add(wid)
-        w=c.execute('select * from works where id=?',(wid,)).fetchone();assert w and w['title'] in r['query'] and w['author'] in r['query']
+        w=c.execute('select * from works where id=?',(wid,)).fetchone()
+        # Search quotes delimit phrases; embedded ASCII quotes are sent as spaces.
+        assert w and all(value in r['query'] or value.replace('"',' ') in r['query'] for value in (w['title'],w['author']))
         for media in r.get('checked_media',MEDIA[1:]):
             assert media in MEDIA
             status=r.get('statuses',{}).get(media,'已调查未发现')

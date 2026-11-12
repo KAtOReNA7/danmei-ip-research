@@ -1,6 +1,16 @@
 """Rights sale timing and type classification; launch dates never substitute."""
 import calendar,re
-from datetime import date
+from datetime import date,timedelta
+
+def license_disclosure_window(announcement_day,*,acquired,window_start='2024-01-01'):
+    """Explicit acquisition proves prior existence, never an exact signing date."""
+    announced=date.fromisoformat(announcement_day)
+    upper=announced+timedelta(days=1)  # Source timezone unspecified: calendar margin.
+    return {'announcement_time':announcement_day,'contract_time_raw':None,
+            'contract_start':None,'contract_end':None,
+            'time_precision':'签署日未知；已获授权公告提供存在时间上界，来源时区未明',
+            'window_role':'窗口前已获授权披露' if acquired and upper<date.fromisoformat(window_start) else '签约时间待核',
+            'disclosure_upper_date_with_timezone_margin':upper.isoformat() if acquired else None}
 
 def sale_window(raw,cutoff='2026-11-10'):
     raw=(raw or '').strip()

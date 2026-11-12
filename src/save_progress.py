@@ -6,7 +6,8 @@ def save(batch,cloud=None):
  qualified=c.execute("select count(*) from works where inclusion_status='已确认'").fetchone()[0]
  touched=c.execute("select count(distinct work_id) from coverage where task_type='work_media' and status!='未调查'").fetchone()[0]
  cross=c.execute("select count(distinct work_id) from coverage where task_type='work_media' and media!='电子书' and status!='未调查'").fetchone()[0]
- pending=[dict(r) for r in c.execute("select id,source_id,title,author,platform from works where platform='晋江' and signing_evidence is null order by cast(source_id as integer)")]
+ pending=[dict(r) for r in c.execute('select id,source_id,title,author,platform from works where '+JJ_PENDING_WHERE+' order by cast(source_id as integer)')]
+ unresolved_jj=c.execute("select count(*) from works where platform='晋江' and signing_evidence is null").fetchone()[0]
  detail=c.execute("select count(*) from works where signing_evidence is not null or exists(select 1 from coverage cv where cv.work_id=works.id and cv.task_type='qualification' and cv.status='已核验')").fetchone()[0]
  cp_detail=c.execute("select count(*) from works where platform='长佩' and (signing_evidence is not null or exists(select 1 from coverage cv where cv.work_id=works.id and cv.task_type='qualification' and cv.status='已核验'))").fetchone()[0]
  blocked=c.execute("select count(*) from coverage where task_type='work_media' and media='电子书' and status='访问受阻'").fetchone()[0]
@@ -28,6 +29,8 @@ def save(batch,cloud=None):
  stamp=now();p={'at':stamp,'batch':batch,'cutoff':'2026-11-10','status':'部分完成','candidate_source_records':n,'qualified_source_records':qualified,'touched_records':touched,'metadata_records':detail,'non_ebook_initial_search_records':cross,'no_checks_yet':n-touched,'remaining_jj_detail':len(pending),'next_jj_detail':pending[:10],'counts':counts,'cloud_validation':cloud,'global_denominator':None,'backup_status':backup_note,'source_runtime':runtime}
  (ROOT/'data/progress.json').write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
  p['research_priority']='V1.2开发阶段连续采集整理；主线仍为窗口内已售出/已授权签约，上线不证明窗口内售出'
+ p['remaining_jj_detail_basis']='常规队列排除已有官方锁删提示；这些候选及资格缺口仍保留，不自动排除'
+ p['remaining_jj_signing_evidence_missing_including_locked']=unresolved_jj
  p['development_cadence']='本批本地落盘；仅同步变更表并回读。完整审核与私有备份留到里程碑，不代表本批已云端备份。'
  p['rights_window_summary']=[dict(r) for r in c.execute('select window_role,count(*) source_rows,count(distinct work_id) works from rights_records group by window_role')]
  p['independent_deal_count']=None
