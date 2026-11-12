@@ -25,6 +25,26 @@ def sale_window(raw,cutoff='2026-11-10'):
     role=({4:'窗口内签约年份',7:'窗口内签约月份',10:'窗口内签约日期'}[len(raw)]) if start>=date(2024,1,1) and end<=date.fromisoformat(cutoff) else '窗口前背景' if end<date(2024,1,1) else '窗口后' if start>date.fromisoformat(cutoff) else '跨截止日待核'
     return {'start':start.isoformat()+'T00:00:00+08:00','end':end.isoformat()+'T23:59:59+08:00','precision':precision,'window_role':role}
 
+
+def completed_signing_period(raw,announcement_day,*,explicit_completed,cutoff='2026-11-10'):
+    """Bound an explicitly completed signing period, never a launch or a plan.
+
+    Announcement supplies an upper bound only when the source independently
+    states the signing year/month. It never becomes an exact signing date.
+    """
+    unknown={'start':None,'end':None,'precision':'未知','window_role':'签约时间待核'}
+    if not explicit_completed:return unknown
+    result=sale_window(raw,cutoff)
+    if not result['start']:return unknown
+    start=date.fromisoformat(result['start'][:10]);end=date.fromisoformat(result['end'][:10])
+    upper=date.fromisoformat(announcement_day)+timedelta(days=1)
+    if upper<start:return unknown  # Contradictory period and past-tense disclosure.
+    end=min(end,upper)
+    role=({'年':'窗口内签约年份','月':'窗口内签约月份','日':'窗口内签约日期'}[result['precision'][0]]) if start>=date(2024,1,1) and end<=date.fromisoformat(cutoff) else '窗口前背景' if end<date(2024,1,1) else '窗口后' if start>date.fromisoformat(cutoff) else '跨截止日待核'
+    return {'start':start.isoformat()+'T00:00:00+08:00','end':end.isoformat()+'T23:59:59+08:00',
+            'precision':result['precision']+'；明确已签发生期与披露存在上界交集，来源时区未明加一日余量；非具体签署日',
+            'window_role':role}
+
 def rights_media(raw):
     if '线下活动' in raw or '主题店' in raw or '舞台剧' in raw:return '舞台线下'
     if any(s in raw for s in ('周边','衍生品','联名','手机主题')):return '官方周边联名'

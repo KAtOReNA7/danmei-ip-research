@@ -1,9 +1,20 @@
 import sys,unittest
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
-from rights_rules import sale_window,rights_media,license_disclosure_window
+from rights_rules import sale_window,rights_media,license_disclosure_window,completed_signing_period
 
 class RightsRules(unittest.TestCase):
+    def test_completed_period_requires_independent_signing_period(self):
+        r=completed_signing_period('2026','2026-06-12',explicit_completed=True)
+        self.assertEqual(r['window_role'],'窗口内签约年份')
+        self.assertEqual(r['start'],'2026-01-01T00:00:00+08:00')
+        self.assertEqual(r['end'],'2026-06-13T23:59:59+08:00')
+        self.assertEqual(completed_signing_period(None,'2026-06-12',explicit_completed=True)['window_role'],'签约时间待核')
+        self.assertEqual(completed_signing_period('2026','2026-06-12',explicit_completed=False)['window_role'],'签约时间待核')
+        self.assertEqual(completed_signing_period('2026','2026-11-10',explicit_completed=True)['window_role'],'跨截止日待核')
+        self.assertEqual(completed_signing_period('2026','2025-12-01',explicit_completed=True)['window_role'],'签约时间待核')
+        self.assertEqual(completed_signing_period('2023','2026-06-12',explicit_completed=True)['window_role'],'窗口前背景')
+
     def test_explicit_signing_day_boundaries(self):
         for day in ['2024-01-01','2026-08-22','2026-11-10']:
             self.assertEqual(sale_window(day)['window_role'],'窗口内签约日期')

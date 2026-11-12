@@ -32,6 +32,7 @@ def write_brief(progress):
         'counts':p['counts'],
         'rights_time_roles':rights.get('window_roles',[]),
         'qualified_rights_time_roles':rights.get('qualified_works_subset',[]),
+        'qualified_window_combined':rights.get('qualified_window_combined'),
         'independent_contracts':None,
         'cloud':{'receipt':p.get('cloud_validation'),'changed_tables_readback_passed':verified,
                  'tables':list(validation),'global_readback_performed':scope.get('global_readback_performed',False)},
@@ -52,6 +53,9 @@ def write_brief(progress):
            '| 项目 | 已完成 | 尚待处理 |','|---|---:|---|']
     lines += [f'| {label} | {done} | {remaining} |' for label,done,remaining in rows]
     c=p['counts']
+    combined=summary['qualified_window_combined']
+    if combined:
+        lines += ['',f"主线：资格已确认且售出发生期完整落入窗口的合并范围为 {combined['source_rows']} 条来源披露、{combined['works']} 条去重作品ID。已跨日／月／年精度去重；不是独立交易数。"]
     lines += ['',f"权利披露 {c['rights_records']} 条，产品／版本 {c['products']} 条，事件 {c['events']} 条，证据 {c['evidence']} 条。独立合同数未知。",'',
               '资格已确认子集中，签约发生期的分布：','']
     lines += [f"- {r['window_role']}：{r['source_rows']} 条披露、{r['works']} 条作品记录。" for r in summary['qualified_rights_time_roles']]

@@ -4,7 +4,7 @@ Input contains necessary metadata only. Day precision requires an explicit
 signing event, never an announcement or a programme release date.
 """
 from research import *
-from rights_rules import sale_window
+from rights_rules import sale_window,completed_signing_period
 
 
 def ingest(document):
@@ -19,7 +19,7 @@ def ingest(document):
             assert json.loads((ROOT/saved['file_path']).read_text(encoding='utf-8'))['necessary_metadata']==item['facts']
         else:
             eid=evidence(c,item['url'],item['source_title'],item['facts'],item['source_owner'],
-                         status=item['source_status'],method='公开网页直接核验必要元数据；无音频、正文或实时指标',
+                         status=item['source_status'],method=item.get('method','公开网页直接核验必要元数据；无音频、正文或实时指标'),
                          published=item.get('published_at'),accessed=document['reviewed_at'])
         report['evidence']+=1; gap=item['gap']
         if item.get('signing_day'):
@@ -43,6 +43,17 @@ def ingest(document):
             upsert(c,'events',dict(id=eventid,work_id=w['id'],product_id=pid,event_type='公开现场签约',
                 event_time=timing['start'],time_end=timing['end'],time_precision='日；活动签约日，非合同法律生效日',
                 description=item['event_description'],window_role=timing['window_role'],confirmation='官方明确披露',evidence_id=eid))
+        elif item.get('completed_signing_period'):
+            assert item['facts'].get('explicit_completed_signing') is True
+            period=item['completed_signing_period']
+            timing=completed_signing_period(period,item['announcement_day'],explicit_completed=True)
+            assert timing['start'], 'Contradictory or missing actual signing period'
+            rid=key('rights','completed-period',w['id'],item['url'],period,item['rights_type_raw'])
+            report['rights_rows']+=int(not c.execute('select 1 from rights_records where id=?',(rid,)).fetchone())
+            upsert(c,'rights_records',dict(id=rid,work_id=w['id'],rights_type_raw=item['rights_type_raw'],media=item['media'],
+                contract_time_raw=period,contract_start=timing['start'],contract_end=timing['end'],time_precision=timing['precision'],
+                announcement_time=item['announcement_day'],window_role=timing['window_role'],sale_status='第一方明确已完成签约及发生年份；非合同原件',
+                source_url=item['url'],source_locator=item['source_locator'],evidence_id=eid,gap=gap))
         elif item.get('rights_type_raw'):
             assert item['facts'].get('explicit_rights_scope_update') is True
             rid=key('rights','scope-update',w['id'],item['url'],item['rights_type_raw'])
