@@ -22,7 +22,10 @@ def save(batch,cloud=None):
    backup_note='已有Google Drive私有快照，权限、父文件夹及文件大小已回读；云端下载校验尚未完成。'
    if backup.get('download_sha256_verified'):
     backup_note='Google Drive私有快照已上传并下载回读，SHA256及包内校验通过；远端快照时间与本轮本地进度分别记录，后续批次不冒充已备份。'
- stamp=now();p={'at':stamp,'batch':batch,'cutoff':'2026-11-10','status':'部分完成','candidate_source_records':n,'qualified_source_records':qualified,'touched_records':touched,'metadata_records':detail,'non_ebook_initial_search_records':cross,'no_checks_yet':n-touched,'remaining_jj_detail':len(pending),'next_jj_detail':pending[:10],'counts':counts,'cloud_validation':cloud,'global_denominator':None,'backup_status':backup_note}
+ runtime_file=ROOT/'data/source-runtime-status.json'
+ runtime=json.loads(runtime_file.read_text(encoding='utf-8')) if runtime_file.exists() else None
+ runtime_note=' 当前内置浏览器不可用，以上登录/渲染成功仅为历史状态；长佩渲染资格队列未计本轮完成，继续公开HTTP/索引等独立来源，不切Chrome。' if runtime and runtime.get('iab')=='unavailable' else ''
+ stamp=now();p={'at':stamp,'batch':batch,'cutoff':'2026-11-10','status':'部分完成','candidate_source_records':n,'qualified_source_records':qualified,'touched_records':touched,'metadata_records':detail,'non_ebook_initial_search_records':cross,'no_checks_yet':n-touched,'remaining_jj_detail':len(pending),'next_jj_detail':pending[:10],'counts':counts,'cloud_validation':cloud,'global_denominator':None,'backup_status':backup_note,'source_runtime':runtime}
  (ROOT/'data/progress.json').write_text(json.dumps(p,ensure_ascii=False,indent=2),encoding='utf-8')
  p['research_priority']='V1.2开发阶段连续采集整理；主线仍为窗口内已售出/已授权签约，上线不证明窗口内售出'
  p['development_cadence']='本批本地落盘；仅同步变更表并回读。完整审核与私有备份留到里程碑，不代表本批已云端备份。'
@@ -40,7 +43,7 @@ P1进行中；全量目标不变，行业调查未完成。{n}条候选来源记
 
 产品{counts['products']}条、事件{counts['events']}条、指标{counts['observations']}项、证据{counts['evidence']}条、核查历史{counts['check_history']}条。原首轮12部样本标记保留，后续批次不追加为样本。字段空白不填零，当前累计不填历史。
 
-{directory_note}；详情电子书核查有{blocked}条访问受阻，其中{locked}条已由原响应确认显示锁定或删除提示，具体状态仍待证。未知解析失败先核对原响应，不能直接判定为账号限制。来源暂停时继续其他独立来源，不绕过。{cp_note}剩余晋江详情{len(pending)}条；所有作品仍需各媒介站内、海外译名、下架及历史商业表现深查。
+{directory_note}；详情电子书核查有{blocked}条访问受阻，其中{locked}条已由原响应确认显示锁定或删除提示，具体状态仍待证。未知解析失败先核对原响应，不能直接判定为账号限制。来源暂停时继续其他独立来源，不绕过。{cp_note}{runtime_note}剩余晋江详情{len(pending)}条；所有作品仍需各媒介站内、海外译名、下架及历史商业表现深查。
 
 飞书只用CLI。开发阶段仅同步变更表，完整分页回读本批写入字段及关联；未变更表沿用既有回读，不称本轮全量核验。最新本批回读位置：{cloud or '尚待本批同步'}；真实部署位置和回执不入Git。超过2000行必须继续分页，不静默截断。
 
